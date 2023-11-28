@@ -2,7 +2,7 @@
  * CodingTest1.c
  *
  * Created: 11/27/2023 2:38:00 PM
- * Author : user
+ * Author : Rihards Kellers
  */ 
 
 #define F_CPU 16000000L
