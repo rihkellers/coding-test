@@ -31,12 +31,11 @@ void usart0_init(void)
 
 	uint16_t baudRate = 0;
 	#if defined(BAUDRATE)
-		baudRate = F_CPU/(uint16_t)BAUDRATE/16-1;
+		baudRate = F_CPU/(int)BAUDRATE/16-1;
 	#else
 		baudRate = F_CPU/9600/16-1;
 	#endif
 
-	//USART0 Baud Rate Register
 	UBRR0 = baudRate;
 }
 
@@ -62,7 +61,6 @@ void pinSetA_init(void)
 	}
 	#endif
 	DDRA = outputPins;
-	//DDRA = 0b11111111;
 }
 
 void usart0_send(char data)
@@ -82,7 +80,6 @@ void usart0_sendString(char *str)
 
 void parse_command(void)
 {
-
 	char *str1, *token;
 	char *saveptr1;
 	bool mode_set = false;
@@ -97,11 +94,9 @@ void parse_command(void)
 	for (j = 1, str1 = input_buffer; ; j++, str1 = NULL) {
 		token = strtok_r(str1, " ,", &saveptr1);
 		if (token == NULL) break;
-		//usart0_sendString(token);
-		//usart0_sendString("\r\n");
+
 		if (j == 1) {
 			if (strcmp(token, "set-led") == 0) {
-				usart0_sendString("set-led test\r\n");
 				mode_set = true;
 			} else if (strcmp(token, "echo") == 0) {
 				mode_echo = true;
@@ -155,49 +150,30 @@ void parse_command(void)
 				}
 			} else if (mode_echo) {			
 				char *dest = strstr(copy, token);
-				usart0_sendString(token);
-				usart0_sendString("\r\n");
-				usart0_sendString(copy);
-				usart0_sendString("\r\n");
-				usart0_sendString("data: ");
 				
 				int pos = dest - copy;
-				while ( (input_buffer[pos] != '\r') && length != 0 ) {
-					usart0_send(input_buffer[pos]);
-					length--;
-					pos++;
+				while ((input_buffer[pos] != '\r') && length != 0) {
+					if (input_buffer[pos] == '\\' && input_buffer[pos+1] == 'x') {
+						for (int i = 0; i <= 3; i++) {
+							if(input_buffer[pos+i] != '\r') {
+								usart0_send(input_buffer[pos+i]);
+							} else {
+								break;
+							}
+						}
+						length--;
+						pos = pos+4;
+					} else {
+						usart0_send(input_buffer[pos]);
+						length--;
+						pos++;
+					}
 				}
 				usart0_sendString("\r\n");
 				usart0_sendString("OK\r\n");
-				/*int substringLength = strlen(dest) - pos;
-				if (substringLength <= 400) {
-					usart0_sendString("ERROR\r\n");
-					break;
-				}
-				if (length > substringLength) {
-					length = substringLength;
-				}
-				strncpy(result, input_buffer + pos, length - pos );
-				usart0_sendString(result);
-				usart0_sendString("\r\n");*/
 			}
 		}
 	}
-	
-	
-	//usart0_sendString("\r\n");
-	//usart0_sendString("TEST");
-	//usart0_sendString("\r\n");
-	
-	
-	/*
-	if (strcmp(pt, "set-led ") == 0) {
-		usart0_sendString("set-led\r\n");
-	} else if (strcmp(pt, "echo ") == 0) {
-		usart0_sendString("echo\r\n");
-	} else {
-		usart0_sendString("ERROR\r\n");
-	}*/
 }
 
 ISR(USART0_RX_vect) {
@@ -207,11 +183,8 @@ ISR(USART0_RX_vect) {
 	UDR0 = input_buffer[read_spot-1];
 	
 	if ((input_buffer[read_spot - 1] == '\r') || (input_buffer[read_spot - 2] == '\r')) {
-		//PORTA ^= outputPins;
 		cli();
 		parse_command();
-		//usart0_sendString("\n\r");
-		//usart0_sendString("OK\n\r");
 		memset(input_buffer, 0, sizeof input_buffer);
 		read_spot = 0;
 		sei();
